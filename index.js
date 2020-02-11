@@ -1,73 +1,37 @@
 const axios = require("axios");
 const inquirer = require("inquirer");
 
-inquirer
-    .prompt([
-        {
-            type: "input",
-            message: "What is your GitHub username?",
-            name: "username",
-        },
-        {
-            type: "input",
-            message: "What is your email?",
-            name: "email"
-        },
-        {
-            type: "input",
-            message: "What is the project title?",
-            name: "title"
-        },
-        {
-            type: "input",
-            message: "What is a description of the project?",
-            name: "description"
-        },
-        {
-            type: "input",
-            message: "How does this get installed?",
-            name: "installation"
-        },
-        {
-            type: "input",
-            message: "How does this get used?",
-            name: "usage"
-        },
-        {
-            type: "checkbox",
-            message: "Select the license(s) used:",
-            name: "license",
-            choices: [
-                { name: 'Apache License 2.0' },
-                { name: 'GNU GPLv3' },
-                { name: 'MIT' },
-                { name: 'ISC' }
-            ]
-        }
-    ])
-    .then((response) => {
-        console.log(response);
-        const list = Object.values(response);
-        console.log(list);
-        const mappedItems = list.map(markup);
-        function markup(item) {
-            return (`## ${item}`)
-        };
-        console.log(mappedItems);
 
-        console.log(readMeInformation);
-        return writeFile("ReadMe.md", readMeInformation)
-    })
-    // .then((username) => {
-    //     const queryUrl = `https://api.github.com/users/${username}`;
-    //     return axios.get(queryUrl);
-    // })
-    // .then(({ data }) => {
-    //     console.log(data);
-    // })
-    .then(res => {
-        console.log(res);
-    })
-    .catch(err => {
-        console.log(err);
-    });
+const generateReadMe = require("./lib/generate-readme");
+const questions = require("./lib/questions");
+const { writeFile } = require("./lib/file-utils");
+
+const promiseHandler = promise => promise.then(res => [null, res]).catch(err => [err, null]);
+
+const init = async () => {
+    const responseObj = await inquirer.prompt(questions);
+
+    const [axiosErr, githubData] = await promiseHandler(
+        axios.get(`https://api.github.com/users/${responseObj.username}`)
+    );
+
+    if (axiosErr) {
+        return console.log(axiosErr);
+    }
+
+    const readMeData = {
+        ...responseObj, githubData
+    };
+
+    const finishedReadMe = generateReadMe(readMeData);
+
+    const [writeFileErr, writeFileRes] = await promiseHandler(writeFile("generatedREADME.md", finishedReadMe));
+
+    if (writeFileErr) {
+        return console.log(writeFileErr);
+    }
+
+    console.log(writeFileRes);
+};
+
+init();
